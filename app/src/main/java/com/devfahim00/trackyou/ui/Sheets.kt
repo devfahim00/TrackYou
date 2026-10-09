@@ -550,7 +550,7 @@ fun SettingsSheet(vm: MainViewModel, cur: Currency, onDismiss: () -> Unit) {
                         title = "Fingerprint unlock",
                         subtitle = "Also unlock with fingerprint / face",
                         checked = vm.biometricUnlock,
-                        onChecked = { vm.setBiometricUnlock(it) }
+                        onChecked = { vm.updateBiometricUnlock(it) }
                     )
                 }
                 TextButton(onClick = { showPinSetup = true }) { Text("Change PIN") }
@@ -565,14 +565,14 @@ fun SettingsSheet(vm: MainViewModel, cur: Currency, onDismiss: () -> Unit) {
                 title = "Daily hishab reminder",
                 subtitle = "Every night at ~9:00 PM, if nothing was recorded",
                 checked = vm.dailyReminder,
-                onChecked = { vm.setDailyReminder(it) }
+                onChecked = { vm.toggleDailyReminder(it) }
             )
             SettingsToggleRow(
                 icon = Icons.Rounded.Event,
                 title = "Due date alerts",
                 subtitle = "Morning alert when dena/paona is due or overdue",
                 checked = vm.dueReminder,
-                onChecked = { vm.setDueReminder(it) }
+                onChecked = { vm.toggleDueReminder(it) }
             )
             if (!Reminders.canPostNotifications(context)) {
                 Spacer(Modifier.height(4.dp))

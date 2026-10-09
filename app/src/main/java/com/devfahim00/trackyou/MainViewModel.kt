@@ -146,7 +146,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         appLockEnabled = false
     }
 
-    fun setBiometricUnlock(enabled: Boolean) {
+    fun updateBiometricUnlock(enabled: Boolean) {
         prefs.biometricUnlock = enabled
         biometricUnlock = enabled
     }
@@ -157,13 +157,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------------- Reminders ----------------
 
-    fun setDailyReminder(enabled: Boolean) {
+    fun toggleDailyReminder(enabled: Boolean) {
         prefs.dailyReminder = enabled
         dailyReminder = enabled
         Reminders.sync(getApplication())
     }
 
-    fun setDueReminder(enabled: Boolean) {
+    fun toggleDueReminder(enabled: Boolean) {
         prefs.dueReminder = enabled
         dueReminder = enabled
         Reminders.sync(getApplication())
