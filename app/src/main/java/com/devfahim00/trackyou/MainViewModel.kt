@@ -1,6 +1,7 @@
 package com.devfahim00.trackyou
 
 import android.app.Application
+import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -12,13 +13,16 @@ import com.devfahim00.trackyou.data.DebtEntity
 import com.devfahim00.trackyou.data.DebtType
 import com.devfahim00.trackyou.data.GoalEntity
 import com.devfahim00.trackyou.data.Prefs
+import com.devfahim00.trackyou.data.ThemeMode
 import com.devfahim00.trackyou.data.TxEntity
 import com.devfahim00.trackyou.data.TxType
 import com.devfahim00.trackyou.data.currencies
+import com.devfahim00.trackyou.util.Exporter
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.File
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val db = AppDatabase.get(app)
@@ -27,6 +31,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     var userName by mutableStateOf(prefs.name)
         private set
     var currency by mutableStateOf<Currency?>(currencies.firstOrNull { it.code == prefs.currencyCode })
+        private set
+    var themeMode by mutableStateOf(prefs.themeMode)
         private set
 
     val transactions: StateFlow<List<TxEntity>> =
@@ -43,17 +49,31 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         currency = c
     }
 
-    fun addTx(type: TxType, amount: Double, category: String, note: String) {
+    fun saveThemeMode(m: ThemeMode) {
+        prefs.themeMode = m
+        themeMode = m
+    }
+
+    fun addTx(type: TxType, amount: Double, category: String, note: String, date: Long) {
         viewModelScope.launch {
-            db.txDao().insert(TxEntity(type = type, amount = amount, category = category, note = note, date = System.currentTimeMillis()))
+            db.txDao().insert(
+                TxEntity(type = type, amount = amount, category = category, note = note, date = date)
+            )
         }
     }
 
+    fun updateTx(t: TxEntity) { viewModelScope.launch { db.txDao().update(t) } }
+
     fun deleteTx(t: TxEntity) { viewModelScope.launch { db.txDao().delete(t) } }
+
+    /** Re-inserts a previously deleted transaction (undo). */
+    fun restoreTx(t: TxEntity) { viewModelScope.launch { db.txDao().insert(t) } }
 
     fun addDebt(type: DebtType, person: String, amount: Double, note: String) {
         viewModelScope.launch {
-            db.debtDao().insert(DebtEntity(type = type, person = person, amount = amount, note = note, date = System.currentTimeMillis()))
+            db.debtDao().insert(
+                DebtEntity(type = type, person = person, amount = amount, note = note, date = System.currentTimeMillis())
+            )
         }
     }
 
@@ -78,4 +98,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun deleteGoal(g: GoalEntity) { viewModelScope.launch { db.goalDao().delete(g) } }
+
+    fun exportCsv(context: Context): File {
+        val csv = Exporter.buildCsv(transactions.value, debts.value, goals.value)
+        return Exporter.write(context, csv)
+    }
 }

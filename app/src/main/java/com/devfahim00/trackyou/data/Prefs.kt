@@ -19,6 +19,8 @@ val currencies = listOf(
     Currency("CAD", "C$", "Canadian Dollar")
 )
 
+enum class ThemeMode { SYSTEM, LIGHT, DARK }
+
 class Prefs(context: Context) {
     private val sp = context.getSharedPreferences("trackyou_prefs", Context.MODE_PRIVATE)
 
@@ -29,4 +31,10 @@ class Prefs(context: Context) {
     var currencyCode: String
         get() = sp.getString("currency", "") ?: ""
         set(v) { sp.edit().putString("currency", v).apply() }
+
+    var themeMode: ThemeMode
+        get() = runCatching {
+            ThemeMode.valueOf(sp.getString("theme", "SYSTEM") ?: "SYSTEM")
+        }.getOrDefault(ThemeMode.SYSTEM)
+        set(v) { sp.edit().putString("theme", v.name).apply() }
 }

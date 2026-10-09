@@ -53,6 +53,7 @@ interface TxDao {
     @Query("SELECT * FROM transactions ORDER BY date DESC, id DESC")
     fun all(): Flow<List<TxEntity>>
     @Insert suspend fun insert(t: TxEntity)
+    @Update suspend fun update(t: TxEntity)
     @Delete suspend fun delete(t: TxEntity)
 }
 
