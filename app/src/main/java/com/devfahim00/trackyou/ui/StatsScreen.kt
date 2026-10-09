@@ -18,7 +18,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Paid
+import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material.icons.rounded.PieChart
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -27,20 +30,37 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.devfahim00.trackyou.MainViewModel
 import com.devfahim00.trackyou.data.Currency
 import com.devfahim00.trackyou.data.TxType
+import com.devfahim00.trackyou.util.PdfReport
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun StatsScreen(vm: MainViewModel, cur: Currency) {
     val txs by vm.transactions.collectAsState()
     var month by remember { mutableStateOf(currentMonth()) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    fun exportPdf() {
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                val file = vm.exportPdf(context, month.title(), month.start(), month.end())
+                withContext(Dispatchers.Main) { PdfReport.share(context, file) }
+            }
+        }
+    }
 
     val inMonth = txs.filter { it.date >= month.start() && it.date < month.end() }
     val mIncome = inMonth.filter { it.type == TxType.INCOME }.sumOf { it.amount }
@@ -78,6 +98,13 @@ fun StatsScreen(vm: MainViewModel, cur: Currency) {
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
+                IconButton(onClick = { exportPdf() }) {
+                    Icon(
+                        Icons.Rounded.PictureAsPdf,
+                        "Export PDF report for ${month.title()}",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
         item {

@@ -91,7 +91,6 @@ fun MainScreen(vm: MainViewModel) {
         TabItem("Savings", Icons.Rounded.Savings)
     )
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    var showTx by remember { mutableStateOf(false) }
     var editTx by remember { mutableStateOf<TxEntity?>(null) }
     var showDebt by remember { mutableStateOf(false) }
     var showGoal by remember { mutableStateOf(false) }
@@ -130,18 +129,21 @@ fun MainScreen(vm: MainViewModel) {
             }
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    when (tab) {
-                        3 -> showDebt = true
-                        4 -> showGoal = true
-                        else -> showTx = true
-                    }
-                },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.White,
-                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp)
-            ) { Icon(Icons.Rounded.Add, "Add") }
+            // FAB only on Dena-Paona & Savings tabs (home/history/stats use
+            // in-page quick actions instead).
+            if (tab >= 3) {
+                FloatingActionButton(
+                    onClick = {
+                        when (tab) {
+                            3 -> showDebt = true
+                            else -> showGoal = true
+                        }
+                    },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = Color.White,
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp)
+                ) { Icon(Icons.Rounded.Add, "Add") }
+            }
         }
     ) { pad ->
         Box(Modifier.padding(pad).fillMaxSize()) {
@@ -155,12 +157,6 @@ fun MainScreen(vm: MainViewModel) {
         }
     }
 
-    if (showTx) {
-        AddEditTxSheet(tx = null, initialType = TxType.EXPENSE, cur = cur, onDismiss = { showTx = false }) { type, amt, cat, note, date ->
-            vm.addTx(type, amt, cat, note, date)
-            showTx = false
-        }
-    }
     editTx?.let { e ->
         AddEditTxSheet(tx = e, initialType = e.type, cur = cur, onDismiss = { editTx = null }) { type, amt, cat, note, date ->
             vm.updateTx(e.copy(type = type, amount = amt, category = cat, note = note, date = date))
@@ -168,8 +164,8 @@ fun MainScreen(vm: MainViewModel) {
         }
     }
     if (showDebt) {
-        AddDebtSheet(onDismiss = { showDebt = false }) { type, person, amt, note ->
-            vm.addDebt(type, person, amt, note)
+        AddDebtSheet(onDismiss = { showDebt = false }) { type, person, amt, note, due ->
+            vm.addDebt(type, person, amt, note, due)
             showDebt = false
         }
     }
@@ -366,7 +362,7 @@ fun HomeScreen(
                 EmptyState(
                     icon = Icons.Rounded.ReceiptLong,
                     title = "No transactions yet",
-                    subtitle = "Tap the + button to record your first income or expense."
+                    subtitle = "Tap the Expense or Income button above to record your first entry."
                 )
             }
         } else {
@@ -414,10 +410,17 @@ private fun QuickAction(
     OutlinedButton(
         onClick = onClick,
         modifier = modifier.height(48.dp),
-        shape = RoundedCornerShape(14.dp)
+        shape = RoundedCornerShape(14.dp),
+        contentPadding = PaddingValues(horizontal = 8.dp)
     ) {
-        Icon(icon, null, tint = tint, modifier = Modifier.size(17.dp))
-        Spacer(Modifier.width(6.dp))
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
+        Icon(icon, null, tint = tint, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(4.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            softWrap = false
+        )
     }
 }

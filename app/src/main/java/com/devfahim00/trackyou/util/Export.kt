@@ -35,7 +35,7 @@ object Exporter {
         }
         sb.append('\n')
         sb.append("DENA-PAONA (LENT/BORROWED)\n")
-        sb.append("Date,Type,Person,Amount,Paid,Remaining,Note\n")
+        sb.append("Date,Type,Person,Amount,Paid,Remaining,Due,Note\n")
         debts.forEach { d ->
             sb.append(dateText(d.date)).append(',')
                 .append(if (d.type == DebtType.LENT) "Paona (to get)" else "Dena (to pay)").append(',')
@@ -43,6 +43,7 @@ object Exporter {
                 .append(String.format(Locale.US, "%.2f", d.amount)).append(',')
                 .append(String.format(Locale.US, "%.2f", d.paid)).append(',')
                 .append(String.format(Locale.US, "%.2f", (d.amount - d.paid).coerceAtLeast(0.0))).append(',')
+                .append(d.dueDate?.let { dateText(it) } ?: "").append(',')
                 .append(esc(d.note)).append('\n')
         }
         sb.append('\n')

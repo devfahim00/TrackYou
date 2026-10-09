@@ -158,7 +158,7 @@ fun HistoryScreen(
                         icon = Icons.Rounded.CalendarMonth,
                         title = "No transactions",
                         subtitle = if (query.isNotBlank()) "Nothing matches \"$query\" in ${month.title()}."
-                        else "Nothing recorded in ${month.title()}. Tap + to add."
+                        else "Nothing recorded in ${month.title()}. Add an entry from the Home tab."
                     )
                 }
             } else {

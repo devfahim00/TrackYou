@@ -23,8 +23,13 @@ import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Event
+import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LightMode
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -38,6 +43,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -46,6 +52,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,6 +70,11 @@ import com.devfahim00.trackyou.data.ThemeMode
 import com.devfahim00.trackyou.data.TxEntity
 import com.devfahim00.trackyou.data.TxType
 import com.devfahim00.trackyou.util.Exporter
+import com.devfahim00.trackyou.util.PdfReport
+import com.devfahim00.trackyou.util.Reminders
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Locale
 
 @Composable
@@ -225,12 +237,17 @@ fun AddEditTxSheet(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddDebtSheet(onDismiss: () -> Unit, onSave: (DebtType, String, Double, String) -> Unit) {
+fun AddDebtSheet(
+    onDismiss: () -> Unit,
+    onSave: (DebtType, String, Double, String, Long?) -> Unit
+) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var type by remember { mutableStateOf(DebtType.LENT) }
     var person by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
+    var dueMillis by remember { mutableStateOf<Long?>(null) }
+    var showDuePicker by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -271,15 +288,63 @@ fun AddDebtSheet(onDismiss: () -> Unit, onSave: (DebtType, String, Double, Strin
                 label = { Text("Note (optional)") }, singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
+            Spacer(Modifier.height(12.dp))
+
+            // Optional due date for reminder notifications
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { showDuePicker = true }
+                    .padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Icon(Icons.Rounded.Event, null, tint = MaterialTheme.colorScheme.primary)
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Due date (optional)",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        dueMillis?.let { dateText(it) } ?: "Not set - tap to add",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                if (dueMillis != null) {
+                    TextButton(onClick = { dueMillis = null }) { Text("Clear") }
+                }
+            }
             Spacer(Modifier.height(16.dp))
             Button(
                 onClick = {
                     val a = amount.toDoubleOrNull() ?: 0.0
-                    if (a > 0 && person.isNotBlank()) onSave(type, person.trim(), a, note.trim())
+                    if (a > 0 && person.isNotBlank()) onSave(type, person.trim(), a, note.trim(), dueMillis)
                 },
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(16.dp)
             ) { Text("Save") }
+        }
+    }
+
+    if (showDuePicker) {
+        val dpState = rememberDatePickerState(
+            initialSelectedDateMillis = dueMillis ?: System.currentTimeMillis()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDuePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDuePicker = false
+                    dpState.selectedDateMillis?.let { dueMillis = mergeDateToNow(it) }
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDuePicker = false }) { Text("Cancel") }
+            }
+        ) {
+            DatePicker(state = dpState)
         }
     }
 }
@@ -400,9 +465,13 @@ fun GoalAmountSheet(goal: GoalEntity, deposit: Boolean, onDismiss: () -> Unit, o
 fun SettingsSheet(vm: MainViewModel, cur: Currency, onDismiss: () -> Unit) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var name by remember { mutableStateOf(vm.userName) }
     var picked by remember { mutableStateOf(vm.currency) }
     var currencyOpen by remember { mutableStateOf(false) }
+    var showPinSetup by remember { mutableStateOf(false) }
+    var confirmLockOff by remember { mutableStateOf(false) }
+    val bioAvailable = remember { canBiometric(context) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -462,6 +531,78 @@ fun SettingsSheet(vm: MainViewModel, cur: Currency, onDismiss: () -> Unit) {
             }
             Spacer(Modifier.height(16.dp))
 
+            // ---- Security / app lock ----
+            Text("Security", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(8.dp))
+            SettingsToggleRow(
+                icon = Icons.Rounded.Lock,
+                title = "App lock (PIN)",
+                subtitle = "Ask for a PIN when the app opens",
+                checked = vm.appLockEnabled,
+                onChecked = { on ->
+                    if (on) showPinSetup = true else confirmLockOff = true
+                }
+            )
+            if (vm.appLockEnabled) {
+                if (bioAvailable) {
+                    SettingsToggleRow(
+                        icon = Icons.Rounded.Fingerprint,
+                        title = "Fingerprint unlock",
+                        subtitle = "Also unlock with fingerprint / face",
+                        checked = vm.biometricUnlock,
+                        onChecked = { vm.setBiometricUnlock(it) }
+                    )
+                }
+                TextButton(onClick = { showPinSetup = true }) { Text("Change PIN") }
+            }
+            Spacer(Modifier.height(16.dp))
+
+            // ---- Reminders ----
+            Text("Reminders", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(8.dp))
+            SettingsToggleRow(
+                icon = Icons.Rounded.NotificationsActive,
+                title = "Daily hishab reminder",
+                subtitle = "Every night at ~9:00 PM, if nothing was recorded",
+                checked = vm.dailyReminder,
+                onChecked = { vm.setDailyReminder(it) }
+            )
+            SettingsToggleRow(
+                icon = Icons.Rounded.Event,
+                title = "Due date alerts",
+                subtitle = "Morning alert when dena/paona is due or overdue",
+                checked = vm.dueReminder,
+                onChecked = { vm.setDueReminder(it) }
+            )
+            if (!Reminders.canPostNotifications(context)) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Notifications are blocked for TrackYou. Allow them from system settings to receive reminders.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+            Spacer(Modifier.height(16.dp))
+
+            // ---- Data ----
+            OutlinedButton(
+                onClick = {
+                    scope.launch(Dispatchers.IO) {
+                        runCatching {
+                            val m = currentMonth()
+                            val file = vm.exportPdf(context, m.title(), m.start(), m.end())
+                            withContext(Dispatchers.Main) { PdfReport.share(context, file) }
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Icon(Icons.Rounded.PictureAsPdf, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.size(8.dp))
+                Text("Export PDF report (this month)")
+            }
+            Spacer(Modifier.height(8.dp))
             OutlinedButton(
                 onClick = {
                     runCatching {
@@ -481,7 +622,7 @@ fun SettingsSheet(vm: MainViewModel, cur: Currency, onDismiss: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Rounded.Info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                 Text(
-                    "TrackYou v2.0 - offline-first expense tracker",
+                    "TrackYou v2.1 - offline-first expense tracker",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -500,6 +641,190 @@ fun SettingsSheet(vm: MainViewModel, cur: Currency, onDismiss: () -> Unit) {
                 shape = RoundedCornerShape(16.dp)
             ) { Text("Save settings") }
         }
+    }
+
+    if (showPinSetup) {
+        PinSetupSheet(
+            canBiometric = bioAvailable,
+            onDismiss = { showPinSetup = false },
+            onSet = { pin, bio ->
+                vm.enableAppLock(pin, bio)
+                showPinSetup = false
+            }
+        )
+    }
+    if (confirmLockOff) {
+        ConfirmDeleteDialog("App lock", { confirmLockOff = false }) {
+            vm.disableAppLock()
+            confirmLockOff = false
+        }
+    }
+}
+
+@Composable
+private fun SettingsToggleRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onChecked: (Boolean) -> Unit
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(
+            Modifier
+                .size(38.dp)
+                .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+        }
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(checked = checked, onCheckedChange = onChecked)
+    }
+}
+
+// ---------------- PIN setup ----------------
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PinSetupSheet(
+    canBiometric: Boolean,
+    onDismiss: () -> Unit,
+    onSet: (pin: String, biometric: Boolean) -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var step by remember { mutableStateOf(0) } // 0 = enter, 1 = confirm, 2 = biometric choice
+    var entered by remember { mutableStateOf("") }
+    var confirmed by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    val current = if (step == 0) entered else confirmed
+    val validLength = current.length in 4..6
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            Modifier
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            SheetHeader(
+                Icons.Rounded.Lock,
+                when (step) {
+                    0 -> "Set app PIN"
+                    1 -> "Confirm PIN"
+                    else -> "Fingerprint unlock"
+                }
+            )
+            Spacer(Modifier.height(12.dp))
+
+            when (step) {
+                0, 1 -> {
+                    Text(
+                        if (step == 0) "Choose a 4-6 digit PIN to lock TrackYou."
+                        else "Re-enter the same PIN to confirm.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    PinDots(
+                        count = current.length,
+                        total = maxOf(4, current.length),
+                        error = error != null
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        error ?: " ",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (error != null) expenseColor() else androidx.compose.ui.graphics.Color.Transparent
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    PinKeypad(
+                        onDigit = { d ->
+                            error = null
+                            if (step == 0) {
+                                if (entered.length < 6) entered += d
+                            } else {
+                                if (confirmed.length < 6) confirmed += d
+                            }
+                        },
+                        onBackspace = {
+                            if (step == 0) {
+                                if (entered.isNotEmpty()) entered = entered.dropLast(1)
+                            } else {
+                                if (confirmed.isNotEmpty()) confirmed = confirmed.dropLast(1)
+                            }
+                        }
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Button(
+                        onClick = {
+                            if (step == 0) {
+                                step = 1
+                            } else {
+                                if (confirmed == entered) {
+                                    step = if (canBiometric) 2 else 3
+                                } else {
+                                    error = "PINs didn't match - start over"
+                                    confirmed = ""
+                                    step = 0
+                                }
+                            }
+                        },
+                        enabled = validLength,
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) { Text(if (step == 0) "Continue" else "Confirm") }
+                }
+                2 -> {
+                    Text(
+                        "PIN saved. Also unlock with your fingerprint when available?",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Button(
+                        onClick = { onSet(entered, true) },
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(Icons.Rounded.Fingerprint, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.size(6.dp))
+                        Text("Yes, enable fingerprint")
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { onSet(entered, false) },
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) { Text("No, PIN only") }
+                }
+                else -> { /* step 3: no biometric available, finishes below */ }
+            }
+        }
+    }
+
+    // step 3: no biometric available -> done directly
+    if (step == 3) {
+        androidx.compose.runtime.LaunchedEffect(Unit) { onSet(entered, false) }
     }
 }
 
