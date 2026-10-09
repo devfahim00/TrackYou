@@ -100,7 +100,7 @@ fun SavingsScreen(vm: MainViewModel, cur: Currency) {
                     }
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        fmt(cur, total),
+                        animatedValue(cur, total),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -126,7 +126,9 @@ fun SavingsScreen(vm: MainViewModel, cur: Currency) {
         }
 
         items(goals, key = { it.id }) { g ->
-            GoalCard(g, cur, onChange = { deposit -> amountFor = Pair(g, deposit) }, onDelete = { toDelete = g })
+            Box(Modifier.animateItem()) {
+                GoalCard(g, cur, onChange = { deposit -> amountFor = Pair(g, deposit) }, onDelete = { toDelete = g })
+            }
         }
     }
 

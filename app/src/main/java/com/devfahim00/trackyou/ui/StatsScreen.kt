@@ -117,11 +117,11 @@ fun StatsScreen(vm: MainViewModel, cur: Currency) {
         }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatCard("Income", fmtShort(cur, mIncome), Icons.Rounded.ArrowUpward, incomeColor(), Modifier.weight(1f))
-                StatCard("Expense", fmtShort(cur, mExpense), Icons.Rounded.ArrowDownward, expenseColor(), Modifier.weight(1f))
+                StatCard("Income", animatedValueShort(cur, mIncome), Icons.Rounded.ArrowUpward, incomeColor(), Modifier.weight(1f))
+                StatCard("Expense", animatedValueShort(cur, mExpense), Icons.Rounded.ArrowDownward, expenseColor(), Modifier.weight(1f))
                 StatCard(
                     "Net",
-                    fmtShort(cur, mIncome - mExpense),
+                    animatedValueShort(cur, mIncome - mExpense),
                     Icons.Rounded.Paid,
                     if (mIncome - mExpense >= 0) incomeColor() else expenseColor(),
                     Modifier.weight(1f)
@@ -154,7 +154,7 @@ fun StatsScreen(vm: MainViewModel, cur: Currency) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text("Total", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text(
-                                        fmtShort(cur, totalExpense),
+                                        animatedValueShort(cur, totalExpense),
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold
                                     )

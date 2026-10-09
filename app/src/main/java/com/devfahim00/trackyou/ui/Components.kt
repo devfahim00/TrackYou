@@ -1,5 +1,8 @@
 package com.devfahim00.trackyou.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +28,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -36,6 +41,29 @@ import androidx.compose.ui.unit.dp
 import com.devfahim00.trackyou.data.Currency
 import com.devfahim00.trackyou.data.TxEntity
 import com.devfahim00.trackyou.data.TxType
+
+/**
+ * Animated count-up money text: eases from the previous value to the new one
+ * (0 -> value on first appearance) - use like fmt() but as a composable.
+ */
+@Composable
+fun animatedValue(cur: Currency, v: Double): String {
+    val a = remember { Animatable(0f) }
+    LaunchedEffect(v) {
+        a.animateTo(v.toFloat(), tween(900, easing = FastOutSlowInEasing))
+    }
+    return fmt(cur, a.value.toDouble())
+}
+
+/** Same count-up effect for the short (no-decimals) format. */
+@Composable
+fun animatedValueShort(cur: Currency, v: Double): String {
+    val a = remember { Animatable(0f) }
+    LaunchedEffect(v) {
+        a.animateTo(v.toFloat(), tween(900, easing = FastOutSlowInEasing))
+    }
+    return fmtShort(cur, a.value.toDouble())
+}
 
 /** Card with modern soft look: white surface + hairline border + 20dp radius. */
 @Composable

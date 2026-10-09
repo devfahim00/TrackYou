@@ -1,5 +1,8 @@
 package com.devfahim00.trackyou.ui
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,15 +24,19 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.CloudDone
+import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.Fingerprint
+import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.PictureAsPdf
+import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -75,6 +82,8 @@ import com.devfahim00.trackyou.util.Reminders
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 @Composable
@@ -471,7 +480,26 @@ fun SettingsSheet(vm: MainViewModel, cur: Currency, onDismiss: () -> Unit) {
     var currencyOpen by remember { mutableStateOf(false) }
     var showPinSetup by remember { mutableStateOf(false) }
     var confirmLockOff by remember { mutableStateOf(false) }
+    var pendingRestore by remember { mutableStateOf<Uri?>(null) }
+    var statusMsg by remember { mutableStateOf<String?>(null) }
+    var statusIsError by remember { mutableStateOf(false) }
     val bioAvailable = remember { canBiometric(context) }
+
+    val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) {
+            vm.setBackupFolder(context, uri)
+            vm.backupNow { res ->
+                statusIsError = res.isFailure
+                statusMsg = res.fold(
+                    { "Backup saved to $it." },
+                    { "Backup failed: ${it.message ?: "unknown error"}" }
+                )
+            }
+        }
+    }
+    val pickRestore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) pendingRestore = uri
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -584,6 +612,66 @@ fun SettingsSheet(vm: MainViewModel, cur: Currency, onDismiss: () -> Unit) {
             }
             Spacer(Modifier.height(16.dp))
 
+            // ---- Backup & restore ----
+            Text("Backup & restore", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(8.dp))
+            val folderSet = vm.backupDirName.isNotBlank()
+            val lastText = if (vm.lastBackupAt > 0)
+                SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(Date(vm.lastBackupAt))
+            else "never"
+            SettingsToggleRow(
+                icon = if (folderSet) Icons.Rounded.CloudDone else Icons.Rounded.CloudUpload,
+                title = "Auto backup",
+                subtitle = if (folderSet) "\"${vm.backupDirName}\" - last backup: $lastText"
+                else "Local only - pick a Google Drive folder to sync",
+                checked = vm.autoBackup,
+                onChecked = { vm.toggleAutoBackup(it) }
+            )
+            OutlinedButton(
+                onClick = { pickFolder.launch(null) },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Icon(Icons.Rounded.FolderOpen, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.size(8.dp))
+                Text(if (folderSet) "Change backup folder" else "Choose backup folder (Drive or device)")
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = {
+                    vm.backupNow { res ->
+                        statusIsError = res.isFailure
+                        statusMsg = res.fold(
+                            { "Backup saved to $it." },
+                            { "Backup failed: ${it.message ?: "unknown error"}" }
+                        )
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Icon(Icons.Rounded.CloudUpload, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.size(8.dp))
+                Text("Backup now")
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = { pickRestore.launch(arrayOf("*/*")) },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Icon(Icons.Rounded.Restore, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.size(8.dp))
+                Text("Restore from backup file")
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Pick a Google Drive folder (Drive app required) so backups sync to the cloud. A fresh copy is also kept on-device every time your data changes.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(16.dp))
+
             // ---- Data ----
             OutlinedButton(
                 onClick = {
@@ -622,7 +710,7 @@ fun SettingsSheet(vm: MainViewModel, cur: Currency, onDismiss: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Rounded.Info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                 Text(
-                    "TrackYou v2.1 - offline-first expense tracker",
+                    "TrackYou v2.2 - offline-first expense tracker",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -658,6 +746,43 @@ fun SettingsSheet(vm: MainViewModel, cur: Currency, onDismiss: () -> Unit) {
             vm.disableAppLock()
             confirmLockOff = false
         }
+    }
+    if (pendingRestore != null) {
+        AlertDialog(
+            onDismissRequest = { pendingRestore = null },
+            title = { Text("Restore backup?") },
+            text = {
+                Text("Current transactions, dena-paona, payments and goals will be replaced with this backup file. This cannot be undone.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val uri = pendingRestore
+                    pendingRestore = null
+                    if (uri != null) {
+                        vm.restoreBackup(context, uri) { res ->
+                            statusIsError = res.isFailure
+                            statusMsg = res.fold(
+                                { r ->
+                                    "Restored ${r.txCount} transactions, ${r.debtCount} dena-paona records, " +
+                                        "${r.paymentCount} repayments and ${r.goalCount} goals." +
+                                        (r.profileName?.let { " Profile: $it." } ?: "")
+                                },
+                                { "Restore failed: ${it.message ?: "not a valid backup file"}" }
+                            )
+                        }
+                    }
+                }) { Text("Restore") }
+            },
+            dismissButton = { TextButton(onClick = { pendingRestore = null }) { Text("Cancel") } }
+        )
+    }
+    if (statusMsg != null) {
+        AlertDialog(
+            onDismissRequest = { statusMsg = null },
+            title = { Text(if (statusIsError) "Backup / Restore" else "Done") },
+            text = { Text(statusMsg ?: "") },
+            confirmButton = { TextButton(onClick = { statusMsg = null }) { Text("OK") } }
+        )
     }
 }
 

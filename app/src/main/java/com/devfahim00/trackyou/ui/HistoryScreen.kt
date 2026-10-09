@@ -107,11 +107,11 @@ fun HistoryScreen(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            StatCard("Income", fmtShort(cur, mIncome), Icons.Rounded.ArrowUpward, incomeColor(), Modifier.weight(1f))
-            StatCard("Expense", fmtShort(cur, mExpense), Icons.Rounded.ArrowDownward, expenseColor(), Modifier.weight(1f))
+            StatCard("Income", animatedValueShort(cur, mIncome), Icons.Rounded.ArrowUpward, incomeColor(), Modifier.weight(1f))
+            StatCard("Expense", animatedValueShort(cur, mExpense), Icons.Rounded.ArrowDownward, expenseColor(), Modifier.weight(1f))
             StatCard(
                 "Net",
-                fmtShort(cur, mIncome - mExpense),
+                animatedValueShort(cur, mIncome - mExpense),
                 Icons.Rounded.Paid,
                 if (mIncome - mExpense >= 0) incomeColor() else expenseColor(),
                 Modifier.weight(1f)
@@ -167,8 +167,10 @@ fun HistoryScreen(
                         DayHeader(g.label, g.dayNet, cur)
                     }
                     items(g.txs, key = { it.id }) { t ->
-                        SwipeToDelete(onDelete = { onDelete(t) }) {
-                            TxRow(t, cur, showTime = true, onClick = { onEdit(t) })
+                        Box(Modifier.animateItem()) {
+                            SwipeToDelete(onDelete = { onDelete(t) }) {
+                                TxRow(t, cur, showTime = true, onClick = { onEdit(t) })
+                            }
                         }
                     }
                 }

@@ -13,8 +13,8 @@ android {
         applicationId = "com.devfahim00.trackyou"
         minSdk = 26
         targetSdk = 34
-        versionCode = 3
-        versionName = "2.1"
+        versionCode = 4
+        versionName = "2.2"
     }
 
     buildTypes {
@@ -47,4 +47,5 @@ dependencies {
     implementation("androidx.biometric:biometric:1.1.0")
     implementation("androidx.fragment:fragment-ktx:1.8.3")
     implementation("androidx.work:work-runtime-ktx:2.9.1")
+    implementation("androidx.documentfile:documentfile:1.0.1")
 }

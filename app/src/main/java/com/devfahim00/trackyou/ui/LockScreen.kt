@@ -3,8 +3,14 @@ package com.devfahim00.trackyou.ui
 import androidx.activity.compose.BackHandler
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -212,11 +219,29 @@ fun PinKeypad(
                             )
                         }
                     } else {
+                        // Key scales down slightly while pressed - tactile feel.
+                        val interaction = remember { MutableInteractionSource() }
+                        val pressed by interaction.collectIsPressedAsState()
+                        val keyScale by animateFloatAsState(
+                            targetValue = if (pressed) 0.88f else 1f,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessMedium
+                            ),
+                            label = "keyScale"
+                        )
                         Box(
                             Modifier
                                 .size(72.dp)
+                                .graphicsLayer {
+                                    scaleX = keyScale
+                                    scaleY = keyScale
+                                }
                                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f), CircleShape)
-                                .clickable { onDigit(k) },
+                                .clickable(
+                                    interactionSource = interaction,
+                                    indication = LocalIndication.current
+                                ) { onDigit(k) },
                             contentAlignment = Alignment.Center
                         ) {
                             Text(

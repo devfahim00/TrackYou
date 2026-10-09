@@ -138,8 +138,8 @@ fun DebtScreen(vm: MainViewModel, cur: Currency) {
         // Net position card
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatCard("Paona (you'll get)", fmtShort(cur, toGet), Icons.Rounded.ArrowUpward, incomeColor(), Modifier.weight(1f))
-                StatCard("Dena (you owe)", fmtShort(cur, toPay), Icons.Rounded.ArrowDownward, expenseColor(), Modifier.weight(1f))
+                StatCard("Paona (you'll get)", animatedValueShort(cur, toGet), Icons.Rounded.ArrowUpward, incomeColor(), Modifier.weight(1f))
+                StatCard("Dena (you owe)", animatedValueShort(cur, toPay), Icons.Rounded.ArrowDownward, expenseColor(), Modifier.weight(1f))
             }
         }
 
@@ -155,7 +155,9 @@ fun DebtScreen(vm: MainViewModel, cur: Currency) {
         if (byPerson.isNotEmpty()) {
             item { SectionHeader("By person") }
             items(byPerson, key = { it.key }) { p ->
-                PersonCard(p, cur, onClick = { personKey = p.key })
+                Box(Modifier.animateItem()) {
+                    PersonCard(p, cur, onClick = { personKey = p.key })
+                }
             }
         }
 
@@ -172,7 +174,9 @@ fun DebtScreen(vm: MainViewModel, cur: Currency) {
         }
 
         items(shown, key = { it.id }) { d ->
-            DebtCard(d, cur, onPay = { payFor = d }, onDelete = { toDelete = d })
+            Box(Modifier.animateItem()) {
+                DebtCard(d, cur, onPay = { payFor = d }, onDelete = { toDelete = d })
+            }
         }
     }
 
@@ -326,7 +330,7 @@ private fun PersonHistoryScreen(vm: MainViewModel, cur: Currency, personKey: Str
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        (if (net >= 0) "+" else "-") + fmt(cur, kotlin.math.abs(net)),
+                        (if (net >= 0) "+" else "-") + animatedValue(cur, kotlin.math.abs(net)),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -340,8 +344,8 @@ private fun PersonHistoryScreen(vm: MainViewModel, cur: Currency, personKey: Str
                     )
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        MiniHistStat("Paona (to get)", fmtShort(cur, lent), Modifier.weight(1f))
-                        MiniHistStat("Dena (to pay)", fmtShort(cur, borrowed), Modifier.weight(1f))
+                        MiniHistStat("Paona (to get)", animatedValueShort(cur, lent), Modifier.weight(1f))
+                        MiniHistStat("Dena (to pay)", animatedValueShort(cur, borrowed), Modifier.weight(1f))
                     }
                 }
             }
@@ -360,16 +364,18 @@ private fun PersonHistoryScreen(vm: MainViewModel, cur: Currency, personKey: Str
         }
 
         items(events, key = { row -> val p = row.payment; if (p != null) "p${p.id}" else "d${row.debt?.id}" }) { e ->
-            HistEventRow(
-                date = e.date,
-                debt = e.debt,
-                payment = e.payment,
-                cur = cur,
-                onPay = {
-                    val d = e.debt
-                    if (d != null && (d.amount - d.paid) >= 0.005) payFor = d
-                }
-            )
+            Box(Modifier.animateItem()) {
+                HistEventRow(
+                    date = e.date,
+                    debt = e.debt,
+                    payment = e.payment,
+                    cur = cur,
+                    onPay = {
+                        val d = e.debt
+                        if (d != null && (d.amount - d.paid) >= 0.005) payFor = d
+                    }
+                )
+            }
         }
     }
 

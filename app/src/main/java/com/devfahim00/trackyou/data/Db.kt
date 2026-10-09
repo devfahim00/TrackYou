@@ -6,6 +6,7 @@ import androidx.room.Database
 import androidx.room.Delete
 import androidx.room.Entity
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
@@ -70,6 +71,10 @@ interface TxDao {
     @Delete suspend fun delete(t: TxEntity)
     @Query("SELECT COUNT(*) FROM transactions WHERE date >= :from AND date < :to")
     suspend fun countBetween(from: Long, to: Long): Int
+    @Query("DELETE FROM transactions")
+    suspend fun clear()
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(list: List<TxEntity>)
 }
 
 @Dao
@@ -81,6 +86,10 @@ interface DebtDao {
     @Delete suspend fun delete(d: DebtEntity)
     @Query("SELECT * FROM debts")
     suspend fun allOnce(): List<DebtEntity>
+    @Query("DELETE FROM debts")
+    suspend fun clear()
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(list: List<DebtEntity>)
 }
 
 @Dao
@@ -89,6 +98,10 @@ interface PaymentDao {
     fun all(): Flow<List<PaymentEntity>>
     @Insert suspend fun insert(p: PaymentEntity)
     @Delete suspend fun delete(p: PaymentEntity)
+    @Query("DELETE FROM payments")
+    suspend fun clear()
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(list: List<PaymentEntity>)
 }
 
 @Dao
@@ -98,6 +111,10 @@ interface GoalDao {
     @Insert suspend fun insert(g: GoalEntity)
     @Update suspend fun update(g: GoalEntity)
     @Delete suspend fun delete(g: GoalEntity)
+    @Query("DELETE FROM goals")
+    suspend fun clear()
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(list: List<GoalEntity>)
 }
 
 @Database(

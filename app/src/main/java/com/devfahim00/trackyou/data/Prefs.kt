@@ -96,4 +96,26 @@ class Prefs(context: Context) {
     var notifPermAsked: Boolean
         get() = sp.getBoolean("notif_perm_asked", false)
         set(v) { sp.edit().putBoolean("notif_perm_asked", v).apply() }
+
+    // ---------------- Backup & restore ----------------
+
+    /** SAF tree URI of the user-selected backup folder (can be a Google Drive folder). */
+    var backupDirUri: String
+        get() = sp.getString("backup_dir_uri", "") ?: ""
+        set(v) { sp.edit().putString("backup_dir_uri", v).apply() }
+
+    /** Display name of the selected backup folder, e.g. "My Drive" or "Backups". */
+    var backupDirName: String
+        get() = sp.getString("backup_dir_name", "") ?: ""
+        set(v) { sp.edit().putString("backup_dir_name", v).apply() }
+
+    /** Timestamp (millis) of the last successful backup; 0 = never. */
+    var lastBackupAt: Long
+        get() = sp.getLong("last_backup_at", 0L)
+        set(v) { sp.edit().putLong("last_backup_at", v).apply() }
+
+    /** Auto backup on data change + daily on app open (default on). */
+    var autoBackup: Boolean
+        get() = sp.getBoolean("auto_backup", true)
+        set(v) { sp.edit().putBoolean("auto_backup", v).apply() }
 }

@@ -1,5 +1,18 @@
 package com.devfahim00.trackyou.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -64,6 +77,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -119,7 +133,26 @@ fun MainScreen(vm: MainViewModel) {
                     NavigationBarItem(
                         selected = tab == i,
                         onClick = { tab = i },
-                        icon = { Icon(t.icon, contentDescription = t.label) },
+                        icon = {
+                            val iconScale by animateFloatAsState(
+                                targetValue = if (tab == i) 1.18f else 1f,
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = Spring.StiffnessMedium
+                                ),
+                                label = "navIconScale"
+                            )
+                            Icon(
+                                t.icon,
+                                contentDescription = t.label,
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .graphicsLayer {
+                                        scaleX = iconScale
+                                        scaleY = iconScale
+                                    }
+                            )
+                        },
                         label = { Text(t.label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         colors = NavigationBarItemDefaults.colors(
                             indicatorColor = MaterialTheme.colorScheme.primaryContainer
@@ -130,8 +163,18 @@ fun MainScreen(vm: MainViewModel) {
         },
         floatingActionButton = {
             // FAB only on Dena-Paona & Savings tabs (home/history/stats use
-            // in-page quick actions instead).
-            if (tab >= 3) {
+            // in-page quick actions instead); scales in/out with the tab.
+            AnimatedVisibility(
+                visible = tab >= 3,
+                enter = scaleIn(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    ),
+                    initialScale = 0.6f
+                ) + fadeIn(),
+                exit = scaleOut(targetScale = 0.6f) + fadeOut()
+            ) {
                 FloatingActionButton(
                     onClick = {
                         when (tab) {
@@ -147,12 +190,25 @@ fun MainScreen(vm: MainViewModel) {
         }
     ) { pad ->
         Box(Modifier.padding(pad).fillMaxSize()) {
-            when (tab) {
-                0 -> HomeScreen(vm, cur, onSeeAll = { tab = 1 }, onOpenSettings = { showSettings = true })
-                1 -> HistoryScreen(vm, cur, onDelete = ::deleteTxWithUndo, onEdit = { editTx = it })
-                2 -> StatsScreen(vm, cur)
-                3 -> DebtScreen(vm, cur)
-                else -> SavingsScreen(vm, cur)
+            // Directional slide + fade when switching tabs.
+            AnimatedContent(
+                targetState = tab,
+                transitionSpec = {
+                    val dir = (targetState - initialState).coerceIn(-1, 1)
+                    (slideInHorizontally(tween(280)) { dir * it / 3 } + fadeIn(tween(280))) togetherWith
+                        (slideOutHorizontally(tween(200)) { -dir * it / 3 } + fadeOut(tween(200)))
+                },
+                label = "tabContent"
+            ) { t ->
+                Box(Modifier.fillMaxSize()) {
+                    when (t) {
+                        0 -> HomeScreen(vm, cur, onSeeAll = { tab = 1 }, onOpenSettings = { showSettings = true })
+                        1 -> HistoryScreen(vm, cur, onDelete = ::deleteTxWithUndo, onEdit = { editTx = it })
+                        2 -> StatsScreen(vm, cur)
+                        3 -> DebtScreen(vm, cur)
+                        else -> SavingsScreen(vm, cur)
+                    }
+                }
             }
         }
     }
@@ -288,7 +344,7 @@ fun HomeScreen(
                     }
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        if (hideBalance) "••••••" else fmt(cur, balance),
+                        if (hideBalance) "••••••" else animatedValue(cur, balance),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -298,13 +354,13 @@ fun HomeScreen(
                         MiniStat(
                             icon = Icons.Rounded.ArrowUpward,
                             label = "Income this month",
-                            value = if (hideBalance) "•••" else fmt(cur, mIncome),
+                            value = if (hideBalance) "•••" else animatedValueShort(cur, mIncome),
                             modifier = Modifier.weight(1f)
                         )
                         MiniStat(
                             icon = Icons.Rounded.ArrowDownward,
                             label = "Expense this month",
-                            value = if (hideBalance) "•••" else fmt(cur, mExpense),
+                            value = if (hideBalance) "•••" else animatedValueShort(cur, mExpense),
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -367,7 +423,9 @@ fun HomeScreen(
             }
         } else {
             items(txs.take(5), key = { it.id }) { t ->
-                TxRow(t, cur)
+                Box(Modifier.animateItem()) {
+                    TxRow(t, cur)
+                }
             }
         }
     }

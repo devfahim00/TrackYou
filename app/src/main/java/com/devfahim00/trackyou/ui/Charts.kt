@@ -1,5 +1,8 @@
 package com.devfahim00.trackyou.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +19,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -41,6 +46,12 @@ fun DonutChart(
 ) {
     val total = segments.map { it.first }.sum()
     val trackColor = MaterialTheme.colorScheme.surfaceVariant
+    // Draw-in animation: arcs sweep from 0 to full when data (month) changes.
+    val progress = remember { Animatable(0f) }
+    LaunchedEffect(segments) {
+        progress.snapTo(0f)
+        progress.animateTo(1f, tween(750, easing = FastOutSlowInEasing))
+    }
     Box(modifier, contentAlignment = Alignment.Center) {
         Canvas(Modifier.matchParentSize()) {
             val strokeWidthPx = stroke.toPx()
@@ -60,9 +71,10 @@ fun DonutChart(
             } else {
                 var start = -90f
                 val gap = if (segments.size > 1) 2.5f else 0f
+                val p = progress.value
                 segments.forEach { (value, color) ->
-                    val sweep = (value / total) * 360f
-                    val eff = (sweep - gap).coerceAtLeast(0f)
+                    val sweep = (value / total) * 360f * p
+                    val eff = (sweep - gap * p).coerceAtLeast(0f)
                     if (eff > 0f) {
                         drawArc(
                             color = color,
@@ -101,6 +113,12 @@ fun MonthBarsChart(
 ) {
     val inc = incomeColor()
     val exp = expenseColor()
+    // Bars grow from 0 to full height when data (month) changes.
+    val progress = remember { Animatable(0f) }
+    LaunchedEffect(labels, income, expense) {
+        progress.snapTo(0f)
+        progress.animateTo(1f, tween(750, easing = FastOutSlowInEasing))
+    }
     Column(modifier) {
         Canvas(Modifier.fillMaxWidth().height(130.dp)) {
             val maxV = maxOf(income.maxOrNull() ?: 0f, expense.maxOrNull() ?: 0f, 1f)
@@ -109,10 +127,11 @@ fun MonthBarsChart(
             val groupW = size.width / n
             val barW = (groupW * 0.26f).coerceAtLeast(6f)
             val gap = (groupW * 0.10f).coerceAtLeast(3f)
+            val p = progress.value
             labels.forEachIndexed { i, _ ->
                 val cx = groupW * i + groupW / 2f
-                val ih = ((income.getOrNull(i) ?: 0f) / maxV) * usableH
-                val eh = ((expense.getOrNull(i) ?: 0f) / maxV) * usableH
+                val ih = ((income.getOrNull(i) ?: 0f) / maxV) * usableH * p
+                val eh = ((expense.getOrNull(i) ?: 0f) / maxV) * usableH * p
                 if (ih >= 1f) {
                     drawRoundRect(
                         color = inc,
