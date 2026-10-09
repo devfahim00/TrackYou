@@ -205,14 +205,20 @@ fun AddEditTxSheet(
     if (showPicker) {
         val dpState = rememberDatePickerState(initialSelectedDateMillis = dateMillis)
         DatePickerDialog(
-            onDismissRequest = { showPicker = false },
+            state = dpState,
             confirmButton = {
                 TextButton(onClick = {
                     showPicker = false
                     dpState.selectedDateMillis?.let { dateMillis = mergeDateToNow(it) }
                 }) { Text("OK") }
             },
-            dismissButton = { TextButton(onClick = { showPicker = false }) { Text("Cancel") } }
+            dismissButton = {
+                TextButton(onClick = { showPicker = false }) { Text("Cancel") }
+            },
+            properties = androidx.compose.ui.window.DialogProperties(
+                dismissOnClickOutside = false,
+                dismissOnBackPress = false
+            )
         )
     }
 }

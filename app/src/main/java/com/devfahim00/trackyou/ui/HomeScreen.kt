@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowDownward
@@ -31,6 +30,7 @@ import androidx.compose.material.icons.rounded.PieChart
 import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.TrendingDown
 import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.Visibility
@@ -87,7 +87,7 @@ fun MainScreen(vm: MainViewModel) {
         TabItem("Home", Icons.Rounded.Home),
         TabItem("History", Icons.Rounded.ReceiptLong),
         TabItem("Stats", Icons.Rounded.PieChart),
-        TabItem("Dena-Paona", Icons.AutoMirrored.Rounded.SwapHoriz),
+        TabItem("Dena-Paona", Icons.Rounded.SwapHoriz),
         TabItem("Savings", Icons.Rounded.Savings)
     )
     var tab by rememberSaveable { mutableIntStateOf(0) }
